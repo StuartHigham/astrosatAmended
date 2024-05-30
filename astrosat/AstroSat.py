@@ -2,6 +2,9 @@
 # MJT
 # license?
 
+import ssl
+from pathlib import Path
+
 import numpy
 import ephem
 import datetime
@@ -9,7 +12,7 @@ import astropy.units as u
 import astropy.coordinates
 import math
 import scipy.interpolate
-from urllib.request import urlopen
+import urllib.request
 from astroquery.simbad import Simbad
 import os
 from tqdm import tqdm
@@ -82,9 +85,35 @@ class AstroSat:
         if forceNew == 1:
             if self.parameters.verbose:
                 print('Downloading TLE:%s'%satellite_type)
+            
+            # Amended TLE_URL to websites new URL format
+            TLE_URL = 'https://www.celestrak.org/NORAD/elements/gp.php?GROUP=%s&FORMAT=tle'%(satellite_type)
+            context = ssl.create_default_context()
 
-            TLE_URL = 'https://www.celestrak.com/NORAD/elements/%s.txt'%(satellite_type)
-            TLEs = urlopen(TLE_URL)
+            # Test open URL and catch errors
+            try:
+                TLEs = urllib.request.urlopen(TLE_URL)
+                
+            except (ssl.SSLError) as e:
+                print('WARNING\nSSL Error:', e)
+                print('Do you want to try and continue? (y/n)')
+                if input().strip().lower() == 'y':
+                    context = ssl._create_unverified_context()
+                    pass
+                else:
+                    return None
+            except (urllib.error.URLError) as e:
+                print('URL Error:', e)
+                print('Press enter to exit.')
+                input()
+                return None
+            except Exception as e:
+                print("General error:", e)
+                print('Press enter to exit.')
+                input()
+                return None
+
+            TLEs = urllib.request.urlopen(TLE_URL, context=context)
             TLEs = [item.strip() for item in TLEs]
             satTLEs = [(TLEs[i].decode('utf-8'), TLEs[i+1].decode('utf-8'), TLEs[i+2].decode('utf-8')) for i in numpy.arange(0, len(TLEs)-2, 3)]
         
@@ -94,7 +123,6 @@ class AstroSat:
             for TLE in satTLEs:
                 f.write('%s,%s,%s\n' %(TLE[0],TLE[1],TLE[2]))
             f.close()
-
         return satTLEs
 
     def get_satellites(self,satTLEs):
@@ -339,7 +367,11 @@ class AstroSat:
             #  
             if self.parameters.verbose:
                 print('Using Bright Star Catalogue')
-            with open(os.path.dirname(__file__)+"/data/bsc.dat",'r') as f:     
+            
+            # Get AstroSat.py path dynamically
+            path = os.path.dirname(os.path.abspath(__file__))
+
+            with open(os.path.join(path, 'data/bsc.dat'),'r') as f:
                 for line in f:
                     # Loop through the Yale Bright Star Catalog, line by line
                     # Ignore blank lines and comment lines
@@ -369,4 +401,3 @@ class AstroSat:
                     stars.append([hd,ra,dec,mag])
             
         return stars
-

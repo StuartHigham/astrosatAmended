@@ -103,7 +103,7 @@ class Plot:
 
         plt.legend(handles=label_list, numpoints=1, bbox_to_anchor=(1.05, 1), loc='upper left')
 
-    def make_plot(self):
+    def make_plot(self, timeString):
         # make axis scale and labels
         if self.AS.parameters.radius == 180:
             # ful sky
@@ -127,6 +127,7 @@ class Plot:
         plt.subplots_adjust(left=0.15, right=0.75, top=0.9, bottom=0.2)
         self.AS.axSky.set_xlabel('RA')
         self.AS.axSky.set_ylabel('DEC')
+        plt.title(timeString)
 
     def save_plot(self, file_name):
         if not os.path.isdir(self.AS.parameters.plotDir):
